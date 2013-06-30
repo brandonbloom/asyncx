@@ -1,5 +1,5 @@
 (ns asyncx.core
-  (:refer-clojure :exclude [range concat repeat reduce count min max
+  (:refer-clojure :exclude [iterate range concat repeat reduce count min max
                             take take-while drop drop-while map mapcat])
   (:require [clojure.core.async :as async
              :refer [<! >! timeout chan alt! alts! close! go]]))
@@ -11,16 +11,27 @@
         (>! c x)))
     c))
 
-(defn generate [f init pred]
-  (let [c (chan)]
-    (go
-      (loop [x init]
-        (if (pred x)
-          (do
-            (>! c x)
-            (recur (f x)))
-          (close! c))))
-    c))
+(defn iterate
+  ([f init]
+   (let [c (chan)]
+     (go
+       (loop [x init]
+         (if x
+           (do
+             (>! c x)
+             (recur (f x)))
+           (close! c))))
+     c))
+  ([f init pred]
+   (let [c (chan)]
+     (go
+       (loop [x init]
+         (if (pred x)
+           (do
+             (>! c x)
+             (recur (f x)))
+           (close! c))))
+     c)))
 
 (defn range
   ([start end]
@@ -286,7 +297,8 @@
 
   (def c (chan))
 
-  (def c (generate inc 0 #(< % 5)))
+  (def c (iterate inc 0))
+  (def c (iterate inc 0 #(< % 5)))
   (def c (range 5 10))
   (def c (pull [:x 'y "z"]))
   (def c (amb (range 5 10) (range 10 15)))

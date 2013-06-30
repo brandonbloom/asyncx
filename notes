@@ -15,8 +15,10 @@ http://msdn.microsoft.com/en-us/library/hh242961(v=vs.103).aspx
 Individual Function Notes
 
   Generate
-    Could be called "iterate"
+    Renamed to iterate
     Missing a bunch of overloads
+      Do we need them?
+      I implemented the pred overload. Is that needed?
     TODO: Scheduling
     no-predicate?
 
