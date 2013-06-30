@@ -1,0 +1,144 @@
+Closing:
+  Should I propegate closing all the way back up the chain?
+
+
+TODO: Schedulers
+
+
+TODO: all my if/when/whatever operations don't handle nil vs false
+
+
+Inspired by "LINQ Operators by Categories" for Microsoft Rx
+http://msdn.microsoft.com/en-us/library/hh242961(v=vs.103).aspx
+
+
+Individual Function Notes
+
+  Generate
+    Could be called "iterate"
+    Missing a bunch of overloads
+    TODO: Scheduling
+    no-predicate?
+
+  Defer
+    Seems not to make sense given the blocking/parking behavior of channels
+
+  Range
+    Msft went with start+count instead of [start, end)
+    Scheduling
+    Overloads to match clojure.core/range
+
+  FromAsyncPattern
+    Not implemented
+    begin/end async pairs are not common on JVM or in Clojure
+
+  FromEvent
+    There is no standard event pattern, so require sub/unsub functions
+    Call unsub on channel close
+
+  ToObservable
+    I called this "pull"
+    TODO: scheduling
+
+  ToEnumerable
+    TODO
+    Called: seq!!
+    Infinite lazy seq? Or ends on nil?
+
+  Amb
+    This one came across really nicely!
+
+  Concat
+    This one worked really nice too!
+
+  StartsWith
+    I'm pretty sure that this is just concat+pull
+
+  Merge
+    Called this "weave" because merge implies maps in Clojure
+      Not fan-in because there are alternative fan-in strategies
+        ie. close when any port is closed
+    Consider the concurrency limiting overloads
+
+  Repeat
+    TODO: scheduling
+    Overloaded by type to create both cycle and repeat
+
+  Zip
+    Do like clojure: variadic map
+
+  Let
+    TODO: What is this?
+
+  Prune:
+    TODO: What is this?
+
+  Publish
+    This is awesome.
+    Need to think more about hot & cold sources.
+
+  Replay
+    Consider: unbuffered and time-limited buffering
+    TODO: BUG: every-other message from a hot source is lost
+      This seems to be a more general problem with hot sources... what to do?
+
+  Aggregate
+    This is clearly reduce!
+
+  Count
+    Easy one!
+
+  Min, Max
+    Even easier! Maybe so easy, that it's worth treating like Sum/Product
+
+  Sum (and non-existant Product)
+    Not implemented. Use reduce, like clojure.core
+
+  TODO: time-based operations
+  Delay
+  Interval
+  TimeInterval
+  Timestamp
+  Timeout
+
+  TODO: handling-exceptions
+  Throw
+  Catch
+  Finally
+  Retry
+  OnErrorResumeNext
+
+  Do
+    renamed to each
+    TODO: cancel-able via close?
+
+  Run
+    TODO: What is this?
+
+  Remotable
+    TODO: What is this?
+
+  Take, TakeWhile
+    Easy peasy!
+
+  Drop, DropWhile
+    Almost as easy as Take & TakeWhile
+    Used a "transfer" helper
+
+  Select
+    Renamed to map
+    variadic, so as to handle Zip too
+      The variadic required some heavy thinking, but wasn't too hard overall
+
+  Never, Empty
+    I think that these are both just (chan)
+
+  Return
+    this is the arity=1 case of emi
+
+
+Misc functions
+  emit
+    Helper function to produce a channel with given items on it
+  transfer
+    Copies from one channel to annother
