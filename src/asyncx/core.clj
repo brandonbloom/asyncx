@@ -47,12 +47,17 @@
 
 (defn events [subscribe unsubscribe]
   (let [c (chan)
+        d (chan)
         f #(go (>! c %))]
     (subscribe f)
     (go
-      (<! c)
-      (unsubscribe f))
-    c))
+      (loop []
+        (if-let [x (<! c)]
+          (do
+            (>! d x)
+            (recur))
+          (unsubscribe f))))
+    d))
 
 (defn pull [coll]
   (let [c (chan)]
@@ -318,6 +323,12 @@
   (def c (map vector (range 0 5) (pull [:x :y :z])))
   (def c (emit 5 10 15))
   (def c (mapcat emit (range 0 5) (pull [:x :y :z])))
+
+  (def a (atom 0))
+  (def c (events #(add-watch a % (fn [key ref old new] (% new)))
+                 #(remove-watch a %)))
+
+  (swap! a inc)
 
   (quick c)
 

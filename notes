@@ -144,3 +144,7 @@ Misc functions
     Helper function to produce a channel with given items on it
   transfer
     Copies from one channel to annother
+
+
+TODO: Fan out operations!
+  Rx gets this "for free" from multiple subscribers
