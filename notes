@@ -1,5 +1,4 @@
-Closing:
-  Should I propegate closing all the way back up the chain?
+Closing: How should I handle "disposable" sources?
 
 
 TODO: Schedulers
@@ -36,7 +35,9 @@ Individual Function Notes
 
   FromEvent
     There is no standard event pattern, so require sub/unsub functions
-    Call unsub on channel close
+    Call unsub on channel close... but close doesn't dispatch puts
+    TODO: I couldn't get this to work correctly.
+    Events are "hot" sources
 
   ToObservable
     I called this "pull"

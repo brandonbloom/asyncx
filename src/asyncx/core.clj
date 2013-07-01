@@ -45,20 +45,6 @@
            (close! c))))
      c)))
 
-(defn events [subscribe unsubscribe]
-  (let [c (chan)
-        d (chan)
-        f #(go (>! c %))]
-    (subscribe f)
-    (go
-      (loop []
-        (if-let [x (<! c)]
-          (do
-            (>! d x)
-            (recur))
-          (unsubscribe f))))
-    d))
-
 (defn pull [coll]
   (let [c (chan)]
     (go
@@ -325,12 +311,15 @@
   (def c (mapcat emit (range 0 5) (pull [:x :y :z])))
 
   (def a (atom 0))
-  (def c (events #(add-watch a % (fn [key ref old new] (% new)))
-                 #(remove-watch a %)))
-
+  ;(def c (events #(add-watch a % (fn [key ref old new]
+  ;                                 (println old "->" new)
+  ;                                 (% new)))
+  ;               #(remove-watch a %)))
   (swap! a inc)
 
   (quick c)
+
+  (close! c)
 
   (quick (reduce + 0 (range 0 10)))
   (quick (reduce + (range 0 10)))
