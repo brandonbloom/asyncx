@@ -4,7 +4,9 @@
   (:require [clojure.core.async :as async
              :refer [<! >! timeout chan alt! alts! close! go]]))
 
-(defn emit [& xs]
+(defn emit
+  "Returns a channel and puts each item of xs on it."
+  [& xs]
   (let [c (chan)]
     (go
       (doseq [x xs]
@@ -12,6 +14,9 @@
     c))
 
 (defn iterate
+  "Returns a channel of init, (f init), (f (f init)) etc. f must be free of
+  side-effects. Closes the channel when f returns nil or when (pred item)
+  returns logical false."
   ([f init]
    (let [c (chan)]
      (go
@@ -34,18 +39,25 @@
      c)))
 
 (defn range
-  ([start end]
+  "Returns a channel of nums from start (inclusive) to end (exclusive), by
+  step, where start defaults to 0, step to 1, and end to infinity."
+  ([] (range 0 Double/POSITIVE_INFINITY 1))
+  ([end] (range 0 end 1))
+  ([start end] (range start end 1))
+  ([start end step]
    (let [c (chan)]
      (go
        (loop [i start]
          (if (< i end)
            (do
              (>! c i)
-             (recur (inc i)))
+             (recur (+ i step)))
            (close! c))))
      c)))
 
-(defn pull [coll]
+(defn pull
+  "Converts a collection into a channel as by seq."
+  [coll]
   (let [c (chan)]
     (go
       (loop [s (seq coll)]
@@ -56,7 +68,9 @@
           (close! c))))
     c))
 
-(defn amb [& ports]
+(defn amb
+  "Returns a channel to which the first responding port will be transfered."
+  [& ports]
   (let [c (chan)]
     (go
       (let [[x p] (alts! ports)]
@@ -68,7 +82,9 @@
             (close! c)))))
     c))
 
-(defn concat [& ports]
+(defn concat
+  "Returns a channel that each port will be transfered to sequentially."
+  [& ports]
   (let [c (chan)]
     (go
       (loop [ports ports]
@@ -80,7 +96,9 @@
             (recur (next ports))))))
     c))
 
-(defn weave [& ports]
+(defn weave
+  "Completely consumes all ports, returning a channel of their union."
+  [& ports]
   (let [c (chan)]
     (go
       (loop [ports (set ports)]
@@ -95,6 +113,7 @@
     c))
 
 (defn repeat
+  "Returns a (infinite, or length n if supplied) channel of xs."
   ([x]
    (let [c (chan)]
      (go
@@ -112,7 +131,11 @@
              (recur (dec i))))))
      c)))
 
-(defn publish [port]
+(defn publish
+  "Alpha - moreso than the rest of this library.
+  Converts a 'cold' channel into a 'hot' one. Returns a channel that port
+  is transfered to. Drops items when not being read. "
+  [port]
   (let [c (chan)]
     (go
       (loop []
@@ -123,7 +146,11 @@
           (close! c))))
     c))
 
-(defn replay [port buf-or-n]
+(defn replay
+  "Alpha - moreso than the rest of this library.
+  Actually, probably totally broken and useless.
+  Returns a channel which buffers from a hot port."
+  [port buf-or-n]
   (let [c (chan buf-or-n)]
     (go
       (loop []
@@ -134,7 +161,9 @@
           (close! c))))
     c))
 
-(defn each [f port]
+(defn each
+  "Repeatedly executes f (presumably for side-effects) on each item from port."
+  [f port]
   (let [c (chan)]
     (go
       (loop []
@@ -145,6 +174,8 @@
     c))
 
 (defn reduce
+  "Returns a channel which will receive one item as if by clojure.core/reduce.
+  Consumes port."
   ([f port]
    (go
      (when-let [init (<! port)]
@@ -156,20 +187,29 @@
           (recur (f acc x))
           acc)))))
 
-(defn count [port]
+(defn count
+  "Puts the number of items consumed from port on to the returned channel."
+  [port]
   (go
     (loop [n 0]
       (if-let [x (<! port)]
         (recur (inc n))
         n))))
 
-(defn min [port]
+(defn min
+  "Puts the minimum value consumed from port on to the returned channel."
+  [port]
   (reduce clojure.core/min port))
 
-(defn max [port]
+(defn max
+  "Puts the maximum value consumed from port on to the returned channel."
+  [port]
   (reduce clojure.core/max port))
 
-(defn take [n port]
+(defn take
+  "Returns a channel containing the first n items of port.
+  Consumes n+1 items from port."
+  [n port]
   (let [c (chan)]
     (go
       (loop [n n]
@@ -182,7 +222,11 @@
             (close! c)))))
     c))
 
-(defn take-while [pred port]
+(defn take-while
+  "Returns a channel of successive items from port while
+  (pred item) returns true. pred must be free of side-effects.
+  Consumes one more item from port than returned."
+  [pred port]
   (let [c (chan)]
     (go
       (loop []
@@ -195,7 +239,9 @@
           (close! c))))
     c))
 
-(defn transfer [src-port dest-port]
+(defn transfer
+  "Moves each item from src-port to dest-port."
+  [src-port dest-port]
   (go
     (loop []
       (if-let [x (<! src-port)]
@@ -204,7 +250,10 @@
           (recur))
         (close! dest-port)))))
 
-(defn drop [n port]
+(defn drop
+  "Returns a channel containing all but the first n items of port.
+  Consumes n+1 items from port."
+  [n port]
   (let [c (chan)]
     (go
       (loop [n n]
@@ -215,7 +264,11 @@
             (close! c)))))
     c))
 
-(defn drop-while [pred port]
+(defn drop-while
+  "Returns a channel of items consumed from port starting from the first
+  item for which (pred item) returns logical false.
+  Consumes n+1 items from port"
+  [pred port]
   (let [c (chan)]
     (go
       (loop []
@@ -236,6 +289,10 @@
         (recur (inc i))))))
 
 (defn map
+  "Returns a channel consisting of the result of applying f to the set of
+  first items taken from each port, followed by f to the set of second items
+  from each port, until any one of the ports are closed.  Any remaining items
+  on other ports are ignored. f should accept number-of-ports arguments."
   ([f port]
    (let [c (chan)]
      (go
@@ -271,7 +328,10 @@
              (close! c)))))
      c)))
 
-(defn mapcat [f & ports]
+(defn mapcat
+  "Returns a the result of applying concat to the result of applying
+  map to f and ports. Thus function f should return a port."
+  [f & ports]
   (apply concat (apply map f ports)))
 
 
