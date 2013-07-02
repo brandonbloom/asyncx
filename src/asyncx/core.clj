@@ -4,8 +4,6 @@
   (:require [clojure.core.async :as async
              :refer [<! >! timeout chan alt! alts! close! go]]))
 
-(def break ::break)
-
 (defmacro if-recv
   "Reads from port, binding to name. Evaluates the then block if the
   read was successful. Evaluates the else block if the port was closed."
@@ -23,6 +21,8 @@
   [binding & body]
   `(if-recv ~binding
      (do ~@body)))
+
+(def break ::break)
 
 (defmacro dorecv
   "Repeatedly reads from port into binding sym, executes body on iteration.
