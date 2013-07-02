@@ -4,9 +4,12 @@
   (:require [clojure.core.async :as async
              :refer [<! >! timeout chan alt! alts! close! go]]))
 
-(def break ::done)
+(def break ::break)
 
-(defmacro dorecv [[sym port] & body]
+(defmacro dorecv
+  "Repeatedly reads from port into binding sym, executes body on iteration.
+  Port is read until closed, or until body returns asyncx.core/break."
+  [[sym port] & body]
   `(loop [prev# nil]
      (when (not= prev# break)
        (let [~sym (<! ~port)]
