@@ -7,6 +7,8 @@
 (def break ::break)
 
 (defmacro if-recv
+  "Reads from port, binding to name. Evaluates the then block if the
+  read was successful. Evaluates the else block if the port was closed."
   ([[name port :as binding] then]
    (list 'if-recv binding then nil))
   ([[name port] then else]
@@ -15,7 +17,10 @@
         ~else
         ~then))))
 
-(defmacro when-recv [binding & body]
+(defmacro when-recv
+  "Reads from port, binding to name. Evaluates body in an
+  implicit do if the port was not closed."
+  [binding & body]
   `(if-recv ~binding
      (do ~@body)))
 
