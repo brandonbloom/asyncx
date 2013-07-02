@@ -6,15 +6,27 @@
 
 (def break ::break)
 
+(defmacro if-recv
+  ([[name port :as binding] then]
+   (list 'if-recv binding then nil))
+  ([[name port] then else]
+   `(let [~name (<! ~port)]
+      (if (nil? ~name)
+        ~else
+        ~then))))
+
+(defmacro when-recv [binding & body]
+  `(if-recv ~binding
+     (do ~@body)))
+
 (defmacro dorecv
   "Repeatedly reads from port into binding sym, executes body on iteration.
   Port is read until closed, or until body returns asyncx.core/break."
   [[sym port] & body]
   `(loop [prev# nil]
      (when (not= prev# break)
-       (let [~sym (<! ~port)]
-         (when-not (nil? ~sym)
-           (recur (do ~@body)))))))
+       (if-recv [~sym ~port]
+         (recur (do ~@body))))))
 
 (defmacro transfer
   "Moves each item from src-port to dest-port. Leaves dest-port open."
@@ -151,11 +163,10 @@
   [port]
   (go-as c
     (loop []
-      (if-let [x (<! port)]
-        (do
-          (alts! [[c x]] :default nil)
-          (recur))
-        (close! c)))))
+      (when-recv [x port]
+        (alts! [[c x]] :default nil)
+        (recur))
+      (close! c))))
 
 (defn replay
   "Alpha - moreso than the rest of this library.
@@ -165,11 +176,10 @@
   (let [c (chan buf-or-n)]
     (go
       (loop []
-        (if-let [x (<! port)]
-          (do
-            (>! c x)
-            (recur))
-          (close! c))))
+        (when-recv [x port]
+          (>! c x)
+          (recur)))
+      (close! c))
     c))
 
 (defn each
@@ -184,12 +194,12 @@
   Consumes port."
   ([f port]
    (go
-     (when-let [init (<! port)]
+     (when-recv [init port]
        (<! (reduce f init port)))))
   ([f init port]
     (go
       (loop [acc init]
-        (if-let [x (<! port)]
+        (if-recv [x port]
           (recur (f acc x))
           acc)))))
 
@@ -198,7 +208,7 @@
   [port]
   (go
     (loop [n 0]
-      (if-let [x (<! port)]
+      (if-recv [x port]
         (recur (inc n))
         n))))
 
@@ -218,13 +228,11 @@
   [n port]
   (go-as c
     (loop [n n]
-      (if (zero? n)
-        (close! c)
-        (if-let [x (<! port)]
-          (do
-            (>! c x)
-            (recur (dec n)))
-          (close! c))))))
+      (when (< 0 n)
+        (when-recv [x port]
+          (>! c x)
+          (recur (dec n)))))
+      (close! c)))
 
 (defn take-while
   "Returns a channel of successive items from port while
@@ -246,7 +254,7 @@
     (loop [n n]
       (if (zero? n)
         (forward port c)
-        (when-let [x (<! port)]
+        (when-recv [x port]
           (recur (dec n)))))))
 
 (defn drop-while
