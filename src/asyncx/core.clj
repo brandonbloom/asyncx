@@ -16,6 +16,23 @@
          (when-not (nil? ~sym)
            (recur (do ~@body)))))))
 
+(defmacro transfer
+  "Moves each item from src-port to dest-port. Leaves dest-port open."
+  [src-port dest-port]
+  `(let [src# ~src-port
+         dest# ~dest-port]
+     (dorecv [x# src#]
+       (>! dest# x#))))
+
+(defmacro forward
+  "Moves each item from src-port to dest-port. Closes dest-port when done."
+  [src-port dest-port]
+  `(let [src# ~src-port
+         dest# ~dest-port]
+     (dorecv [x# src#]
+       (>! dest# x#))
+     (close! dest#)))
+
 (defn emit
   "Returns a channel and puts each item of xs on it."
   [& xs]
@@ -100,8 +117,7 @@
   (let [c (chan)]
     (go
       (doseq [p ports]
-        (dorecv [x p]
-          (>! c x)))
+        (transfer p c))
       (close! c))
     c))
 
@@ -251,11 +267,9 @@
     (go
       (loop [n n]
         (if (zero? n)
-          (dorecv [x port]
-            (>! c x))
+          (forward port c)
           (when-let [x (<! port)]
-            (recur (dec n)))))
-      (close! c))
+            (recur (dec n))))))
     c))
 
 (defn drop-while
@@ -268,10 +282,8 @@
       (dorecv [x port]
         (when-not (pred x)
           (>! c x)
-          (dorecv [x port]
-            (>! c x))
-          break))
-      (close! c))
+          (forward port c)
+          break)))
     c))
 
 (defn- aclear [arr]
@@ -353,8 +365,8 @@
   (def c (replay (publish (range 0 500000)) (async/sliding-buffer 5)))
   (def c (take 5 (range 0 100)))
   (def c (take-while #(< % 3) (range 0 100)))
-  (def c (drop 5 (range 0 100)))
-  (def c (drop-while #(< % 3) (range 0 100)))
+  (def c (drop 5 (range 0 10)))
+  (def c (drop-while #(< % 3) (range 0 10)))
   (def c (map #(* % 20) (range 0 5)))
   (def c (map vector (range 0 5) (pull [:x :y :z])))
   (def c (emit 5 10 15))
