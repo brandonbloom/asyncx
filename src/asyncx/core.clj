@@ -75,14 +75,14 @@
        (when-not (nil? x)
          (>! c x)
          (recur (f x))))
-      (close! c)))
+     (close! c)))
   ([f init pred]
    (go-as c
      (loop [x init]
        (when (pred x)
          (>! c x)
          (recur (f x))))
-      (close! c))))
+     (close! c))))
 
 (defn range
   "Returns a channel of nums from start (inclusive) to end (exclusive), by
@@ -93,22 +93,20 @@
   ([start end step]
    (go-as c
      (loop [i start]
-       (if (< i end)
-         (do
-           (>! c i)
-           (recur (+ i step)))
-         (close! c))))))
+       (when (< i end)
+         (>! c i)
+         (recur (+ i step))))
+     (close! c))))
 
 (defn pull
   "Converts a collection into a channel as by seq."
   [coll]
   (go-as c
     (loop [s (seq coll)]
-      (if s
-        (do
-          (>! c (first s))
-          (recur (next s)))
-        (close! c)))))
+      (when s
+        (>! c (first s))
+        (recur (next s))))
+    (close! c)))
 
 (defn amb
   "Returns a channel to which the first responding port will be transfered."
@@ -117,8 +115,8 @@
     (let [[x p] (alts! ports)]
       (when-not (nil? x)
         (>! c x)
-        (transfer p c))
-      (close! c))))
+        (transfer p c)))
+    (close! c)))
 
 (defn concat
   "Returns a channel that each port will be transfered to sequentially."
@@ -133,14 +131,14 @@
   [& ports]
   (go-as c
     (loop [ports (set ports)]
-      (if-let [s (seq ports)]
+      (when-let [s (seq ports)]
         (let [[x p] (alts! s)]
           (if (nil? x)
             (recur (disj ports p))
             (do
               (>! c x)
-              (recur ports))))
-        (close! c)))))
+              (recur ports))))))
+    (close! c)))
 
 (defn repeat
   "Returns a (infinite, or length n if supplied) channel of xs."
@@ -151,11 +149,10 @@
   ([n x]
    (go-as c
      (loop [i n]
-       (if (zero? i)
-         (close! c)
-         (do
-           (>! c x)
-           (recur (dec i))))))))
+       (when (> i 0)
+         (>! c x)
+         (recur (dec i))))
+     (close! c))))
 
 (defn publish
   "Alpha - moreso than the rest of this library.
@@ -163,11 +160,9 @@
   is transfered to. Drops items when not being read. "
   [port]
   (go-as c
-    (loop []
-      (when-recv [x port]
-        (alts! [[c x]] :default nil)
-        (recur))
-      (close! c))))
+    (dorecv [x port]
+      (alts! [[c x]] :default nil))
+    (close! c)))
 
 (defn replay
   "Alpha - moreso than the rest of this library.
@@ -233,7 +228,7 @@
         (when-recv [x port]
           (>! c x)
           (recur (dec n)))))
-      (close! c)))
+    (close! c)))
 
 (defn take-while
   "Returns a channel of successive items from port while
@@ -299,16 +294,15 @@
          ;; TODO: eliminate seq in alts! call:
          ;; https://github.com/clojure/core.async/issues/15
          (let [[x p] (alts! (seq ports))]
-           (if x
-             (do
-               (aset arr (port-map p) x)
-               (recur (if (= (clojure.core/count ports) 1)
-                        (do
-                          (>! c (apply f arr))
-                          (aclear arr) ; Allow GC
-                          port-set)
-                        (disj ports p))))
-             (close! c))))))))
+           (when-not (nil? x)
+             (aset arr (port-map p) x)
+             (recur (if (= (clojure.core/count ports) 1)
+                      (do
+                        (>! c (apply f arr))
+                        (aclear arr) ; Allow GC
+                        port-set)
+                      (disj ports p))))))
+       (close! c)))))
 
 (defn mapcat
   "Returns a the result of applying concat to the result of applying
