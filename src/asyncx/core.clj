@@ -72,19 +72,17 @@
   ([f init]
    (go-as c
      (loop [x init]
-       (if x
-         (do
-           (>! c x)
-           (recur (f x)))
-         (close! c)))))
+       (when-not (nil? x)
+         (>! c x)
+         (recur (f x))))
+      (close! c)))
   ([f init pred]
    (go-as c
      (loop [x init]
-       (if (pred x)
-         (do
-           (>! c x)
-           (recur (f x)))
-         (close! c))))))
+       (when (pred x)
+         (>! c x)
+         (recur (f x))))
+      (close! c))))
 
 (defn range
   "Returns a channel of nums from start (inclusive) to end (exclusive), by
@@ -117,12 +115,10 @@
   [& ports]
   (go-as c
     (let [[x p] (alts! ports)]
-      (loop [x x]
-        (if x
-          (do
-            (>! c x)
-            (recur (<! p)))
-          (close! c))))))
+      (when-not (nil? x)
+        (>! c x)
+        (transfer p c))
+      (close! c))))
 
 (defn concat
   "Returns a channel that each port will be transfered to sequentially."
@@ -139,11 +135,11 @@
     (loop [ports (set ports)]
       (if-let [s (seq ports)]
         (let [[x p] (alts! s)]
-          (if x
+          (if (nil? x)
+            (recur (disj ports p))
             (do
               (>! c x)
-              (recur ports))
-            (recur (disj ports p))))
+              (recur ports))))
         (close! c)))))
 
 (defn repeat
