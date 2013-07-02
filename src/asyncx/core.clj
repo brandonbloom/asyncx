@@ -4,11 +4,11 @@
   (:require [clojure.core.async :as async
              :refer [<! >! timeout chan alt! alts! close! go]]))
 
-(def done ::done)
+(def break ::done)
 
 (defmacro dorecv [[sym port] & body]
   `(loop [prev# nil]
-     (when (not= prev# done)
+     (when (not= prev# break)
        (let [~sym (<! ~port)]
          (when-not (nil? ~sym)
            (recur (do ~@body)))))))
@@ -172,10 +172,8 @@
   [f port]
   (let [c (chan)]
     (go
-      (loop []
-        (when-let [x (<! port)]
-          (f x)
-          (recur)))
+      (dorecv [x port]
+        (f x))
       (close! c))
     c))
 
@@ -235,26 +233,12 @@
   [pred port]
   (let [c (chan)]
     (go
-      (loop []
-        (if-let [x (<! port)]
-          (if (pred x)
-            (do
-              (>! c x)
-              (recur))
-            (close! c))
-          (close! c))))
+      (dorecv [x port]
+        (if (pred x)
+          (>! c x)
+          break))
+      (close! c))
     c))
-
-(defn transfer
-  "Moves each item from src-port to dest-port."
-  [src-port dest-port]
-  (go
-    (loop []
-      (if-let [x (<! src-port)]
-        (do
-          (>! dest-port x)
-          (recur))
-        (close! dest-port)))))
 
 (defn drop
   "Returns a channel containing all but the first n items of port.
@@ -264,10 +248,11 @@
     (go
       (loop [n n]
         (if (zero? n)
-          (transfer port c)
-          (if-let [x (<! port)]
-            (recur (dec n))
-            (close! c)))))
+          (dorecv [x port]
+            (>! c x))
+          (when-let [x (<! port)]
+            (recur (dec n)))))
+      (close! c))
     c))
 
 (defn drop-while
@@ -277,14 +262,13 @@
   [pred port]
   (let [c (chan)]
     (go
-      (loop []
-        (if-let [x (<! port)]
-          (if (pred x)
-            (recur)
-            (do
-              (>! c x)
-              (transfer port c)))
-          (close! c))))
+      (dorecv [x port]
+        (when-not (pred x)
+          (>! c x)
+          (dorecv [x port]
+            (>! c x))
+          break))
+      (close! c))
     c))
 
 (defn- aclear [arr]
@@ -302,12 +286,9 @@
   ([f port]
    (let [c (chan)]
      (go
-       (loop []
-         (if-let [x (<! port)]
-           (do
-             (>! c (f x))
-             (recur))
-           (close! c))))
+       (dorecv [x port]
+         (>! c (f x)))
+       (close! c))
      c))
   ([f port & ports]
    (let [ports (cons port ports)
