@@ -4,6 +4,15 @@
   (:require [clojure.core.async :as async
              :refer [<! >! timeout chan alt! alts! close! go]]))
 
+(def done ::done)
+
+(defmacro dorecv [[sym port] & body]
+  `(loop [prev# nil]
+     (when (not= prev# done)
+       (let [~sym (<! ~port)]
+         (when-not (nil? ~sym)
+           (recur (do ~@body)))))))
+
 (defn emit
   "Returns a channel and puts each item of xs on it."
   [& xs]
