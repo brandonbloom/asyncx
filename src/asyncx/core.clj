@@ -96,13 +96,10 @@
   [& ports]
   (let [c (chan)]
     (go
-      (loop [ports ports]
-        (when-let [p (first ports)]
-          (if-let [x (<! p)]
-            (do
-              (>! c x)
-              (recur ports))
-            (recur (next ports))))))
+      (doseq [p ports]
+        (dorecv [x p]
+          (>! c x)))
+      (close! c))
     c))
 
 (defn weave
