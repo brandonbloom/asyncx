@@ -3,7 +3,9 @@
                             take take-while drop drop-while map mapcat
                             distinct])
   (:require [clojure.core.async :as async
-             :refer [<! >! timeout chan alt! alts! close! go]]))
+             :refer [<! >! <!! timeout chan alt! alts! close! go]]))
+
+;;; Macros
 
 (defmacro if-recv
   "Reads from port, binding to name. Evaluates the then block if the
@@ -58,6 +60,19 @@
   `(let [~name (chan)]
      (go ~@body)
      ~name))
+
+;;; Blocking Operations
+
+(defn seq!!
+  "Returns a (blocking!) lazy sequence read from a port."
+  [port]
+  (lazy-seq
+    (let [x (<!! port)]
+      (when-not (nil? x)
+        (cons x (seq!! port))))))
+
+
+;;; Asynchronous Operations
 
 (defn pull
   "Converts a collection into a channel as by seq."
@@ -345,6 +360,9 @@
     (alt!!
       (timeout 100) :timeout
       c ([x] x)))
+
+  (seq!! (emit))
+  (seq!! (emit 1 2 3))
 
   (def c (chan))
 
