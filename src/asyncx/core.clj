@@ -310,6 +310,17 @@
   [f & ports]
   (apply concat (apply map f ports)))
 
+(defn uniq
+  "Transfers port to the returned channel, dropping consecutive duplicates."
+  [port]
+  (go-as c
+    (loop [prev nil]
+      (when-recv [x port]
+        (when (not= prev x)
+          (>! c x))
+        (recur x)))
+    (close! c)))
+
 
 (comment
 
@@ -331,7 +342,7 @@
   (def c (amb (range 5 10) (range 10 15)))
   (def c (concat (amb (range 0 2) (range 10 12)) (range 20 22)))
   (def c (concat (pull [:x 'y "z"]) (range 0 5)))
-  (def c (weave (range 0 10) (range 50 100)))
+  (def c (weave (range 0 10) (range 50 80)))
   (def c (repeat :x))
   (def c (repeat 3 :y))
   (def c (publish (range 0 500000)))
@@ -345,6 +356,7 @@
   (def c (map vector (range 0 5) (pull [:x :y :z])))
   (def c (emit 5 10 15))
   (def c (mapcat emit (range 0 5) (pull [:x :y :z])))
+  (def c (uniq (pull [1 2 2 2 3 1 4])))
 
   (def a (atom 0))
   ;(def c (events #(add-watch a % (fn [key ref old new]
