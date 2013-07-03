@@ -1,6 +1,7 @@
 (ns asyncx.core
   (:refer-clojure :exclude [iterate range concat repeat reduce count min max
-                            take take-while drop drop-while map mapcat])
+                            take take-while drop drop-while map mapcat
+                            distinct])
   (:require [clojure.core.async :as async
              :refer [<! >! timeout chan alt! alts! close! go]]))
 
@@ -320,6 +321,19 @@
         (recur x)))
     (close! c)))
 
+(defn distinct
+  "Returns a channel which only contains distinct items."
+  [port]
+  (go-as c
+    (loop [seen #{}]
+      (when-recv [x port]
+        (if (seen x)
+          (recur seen)
+          (do
+            (>! c x)
+            (recur (conj seen x))))))
+    (close! c)))
+
 
 (comment
 
@@ -356,6 +370,7 @@
   (def c (map vector (range 0 5) (emit :x :y :z)))
   ;(def c (mapcat emit (range 0 5) (emit :x :y :z)))
   (def c (uniq (emit 1 2 2 2 3 1 4)))
+  (def c (distinct (emit 1 2 2 2 3 1 4)))
 
   (def a (atom 0))
   ;(def c (events #(add-watch a % (fn [key ref old new]
