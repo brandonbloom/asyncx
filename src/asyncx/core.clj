@@ -61,6 +61,7 @@
      (go ~@body)
      ~name))
 
+
 ;;; Blocking Operations
 
 (defn seq!!
@@ -349,6 +350,52 @@
             (recur (conj seen x))))))
     (close! c)))
 
+;;; Some experimental time-related operations
+
+(defn- now []
+  (.getTime (java.util.Date.)))
+
+(defn ticker [interval ticks]
+  (let [control (chan)
+        stop #(close! control)]
+    (go
+      (loop []
+        (let [[x p] (alts! [(timeout interval) control])]
+          (when (not= p control)
+            (>! ticks (now))
+            (recur))))
+      (close! ticks))
+    stop))
+
+(defn throttle-by
+  "Returns a channel which receives a value from src-port
+  each time sync-port receives a value."
+  [sync-port src-port]
+  (go-as c
+    (loop []
+      (<! sync-port)
+      (when-recv [x src-port]
+        (>! c x)
+        (recur)))
+    (close! c)))
+
+(defn throttle
+  [interval port]
+  (go-as c
+    (let [ticks (chan)
+          stop (ticker interval ticks)]
+      (forward (throttle-by ticks port) c)
+      (stop))))
+
+(defn debounce
+  [interval port]
+  (go-as c
+    (let [ticks (chan 1)
+          _ (>! ticks (now))
+          stop (ticker interval ticks)]
+      (forward (throttle-by ticks port) c)
+      (stop))))
+
 
 (comment
 
@@ -389,6 +436,8 @@
   ;(def c (mapcat emit (range 0 5) (emit :x :y :z)))
   (def c (uniq (emit 1 2 2 2 3 1 4)))
   (def c (distinct (emit 1 2 2 2 3 1 4)))
+  (def c (throttle 3000 (range 50)))
+  (def c (debounce 3000 (range 50)))
 
   (def a (atom 0))
   ;(def c (events #(add-watch a % (fn [key ref old new]
