@@ -58,12 +58,18 @@
      (go ~@body)
      ~name))
 
+(defn pull
+  "Converts a collection into a channel as by seq."
+  [coll]
+  (go-as c
+    (doseq [x coll]
+      (>! c x))
+    (close! c)))
+
 (defn emit
   "Returns a channel and puts each item of xs on it."
   [& xs]
-  (go-as c
-    (doseq [x xs]
-      (>! c x))))
+  (pull xs))
 
 (defn iterate
   "Returns a channel of init, (f init), (f (f init)) etc. f must be free of
@@ -97,16 +103,6 @@
          (>! c i)
          (recur (+ i step))))
      (close! c))))
-
-(defn pull
-  "Converts a collection into a channel as by seq."
-  [coll]
-  (go-as c
-    (loop [s (seq coll)]
-      (when s
-        (>! c (first s))
-        (recur (next s))))
-    (close! c)))
 
 (defn amb
   "Returns a channel to which the first responding port will be transfered."
@@ -304,11 +300,14 @@
                       (disj ports p))))))
        (close! c)))))
 
-(defn mapcat
-  "Returns a the result of applying concat to the result of applying
-  map to f and ports. Thus function f should return a port."
-  [f & ports]
-  (apply concat (apply map f ports)))
+;(defn mapcat
+;  "Returns a the result of applying concat to the result of applying
+;  map to f and ports. Thus function f should return a port."
+;  [f & ports]
+;  (go-as c
+;    (dorecv [p (apply map f ports)]
+;      (transfer p c))
+;    (close! c)))
 
 (defn uniq
   "Transfers port to the returned channel, dropping consecutive duplicates."
@@ -339,9 +338,10 @@
   (def c (iterate inc 0 #(< % 5)))
   (def c (range 5 10))
   (def c (pull [:x 'y "z"]))
+  (def c (emit 5 10 15))
   (def c (amb (range 5 10) (range 10 15)))
   (def c (concat (amb (range 0 2) (range 10 12)) (range 20 22)))
-  (def c (concat (pull [:x 'y "z"]) (range 0 5)))
+  (def c (concat (emit :x 'y "z") (range 0 5)))
   (def c (weave (range 0 10) (range 50 80)))
   (def c (repeat :x))
   (def c (repeat 3 :y))
@@ -353,10 +353,9 @@
   (def c (drop 5 (range 0 10)))
   (def c (drop-while #(< % 3) (range 0 10)))
   (def c (map #(* % 20) (range 0 5)))
-  (def c (map vector (range 0 5) (pull [:x :y :z])))
-  (def c (emit 5 10 15))
-  (def c (mapcat emit (range 0 5) (pull [:x :y :z])))
-  (def c (uniq (pull [1 2 2 2 3 1 4])))
+  (def c (map vector (range 0 5) (emit :x :y :z)))
+  ;(def c (mapcat emit (range 0 5) (emit :x :y :z)))
+  (def c (uniq (emit 1 2 2 2 3 1 4)))
 
   (def a (atom 0))
   ;(def c (events #(add-watch a % (fn [key ref old new]
