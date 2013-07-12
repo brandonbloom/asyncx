@@ -5,6 +5,9 @@
   (:require [clojure.core.async :as async
              :refer [<! >! <!! timeout chan alt! alts! close! go]]))
 
+;;TODO: All operations need to have overloads which accept an out-channel
+;;TODO: Producers of infinite streams needs a termination control channel
+
 ;;; Macros
 
 (defmacro if-recv
@@ -437,7 +440,10 @@
   (def c (uniq (emit 1 2 2 2 3 1 4)))
   (def c (distinct (emit 1 2 2 2 3 1 4)))
   (def c (throttle 3000 (range 50)))
+
   (def c (debounce 3000 (range 50)))
+  (dotimes [i 50]
+    (println (<!! c) (now)))
 
   (def a (atom 0))
   ;(def c (events #(add-watch a % (fn [key ref old new]
