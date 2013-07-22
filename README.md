@@ -9,7 +9,10 @@ Cross reference with [my notes][2] and [MSDN][3].
 
 *Highly experimental!*
 
-See [my notes][2] for details.
+I've learned *a lot* in writing this library. If I were to
+do it again, I'd probably do many things differently. As is,
+I certainly wouldn't run this code in production nor view
+it as a exemplarly core.async usage.
 
 ## License
 
