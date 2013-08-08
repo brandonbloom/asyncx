@@ -14,7 +14,7 @@
   "Reads from port, binding to name. Evaluates the then block if the
   read was successful. Evaluates the else block if the port was closed."
   ([[name port :as binding] then]
-   (list 'if-recv binding then nil))
+   `(if-recv ~binding ~then nil))
   ([[name port] then else]
    `(let [~name (<! ~port)]
       (if (nil? ~name)
