@@ -15,7 +15,7 @@ I certainly wouldn't run this code in production nor view
 it as a exemplarly core.async usage.
 
 I'll probably either fix up this library, or document the things I
-learned. In the meantime, you can see my [discussion with lynaghk][1]
+learned. In the meantime, you can see my [discussion with lynaghk][4]
 in Freenode's #clojure on 2013-08-17.
 
 ## License
