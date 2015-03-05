@@ -12,6 +12,9 @@ do it again, I wouldn't persue anything resembling Rx. As is,
 I certainly wouldn't run this code in production nor view
 it as a exemplarly core.async usage.
 
+Furthermore, this was written before core.async channels became
+transducers-aware. Use that instead!
+
 ## License
 
 Copyright © 2013 Brandon Bloom
